@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -24,6 +26,13 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Check Python and packages
+        run: |
+          python --version
+          pip list
+          python -c "import yt_dlp; print('yt-dlp version:', yt_dlp.version.__version__)"
+        shell: cmd
+
       - name: Build EXE
         run: |
           pyinstaller --onefile --windowed --name "YouTube_Downloader_Enhanced" start.py
@@ -32,7 +41,7 @@ jobs:
       - name: List files
         run: |
           dir
-          dir dist
+          if exist dist dir dist
         shell: cmd
 
       - name: Upload artifacts
