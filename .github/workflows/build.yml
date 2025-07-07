@@ -37,11 +37,6 @@ jobs:
           python -c "import yt_dlp; print('yt-dlp version:', yt_dlp.version.__version__)"
         shell: cmd
 
-      - name: Create icon
-        run: |
-          python create_icon.py
-        shell: cmd
-
       - name: Build EXE
         run: |
           pyinstaller --onefile --windowed --name "YouTube_Downloader_Enhanced" --icon=icon.ico --clean start.py
