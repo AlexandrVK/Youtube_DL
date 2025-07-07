@@ -37,9 +37,14 @@ jobs:
           python -c "import yt_dlp; print('yt-dlp version:', yt_dlp.version.__version__)"
         shell: cmd
 
+      - name: Create icon
+        run: |
+          python create_icon.py
+        shell: cmd
+
       - name: Build EXE
         run: |
-          pyinstaller --onefile --windowed --name "YouTube_Downloader_Enhanced" --clean start.py
+          pyinstaller --onefile --windowed --name "YouTube_Downloader_Enhanced" --icon=icon.ico --clean start.py
         shell: cmd
 
       - name: Verify build
@@ -59,3 +64,12 @@ jobs:
           name: youtube-downloader-enhanced
           path: dist/
           retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/YouTube_Downloader_Enhanced.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

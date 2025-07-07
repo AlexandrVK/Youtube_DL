@@ -1,7 +1,7 @@
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import yt_dlp
-from pathlib import Path
 import threading
 import re
 import os
@@ -10,7 +10,7 @@ import datetime
 import time
 import json
 import glob
-import pprint
+import shutil
 
 try:
     import winreg
@@ -755,8 +755,6 @@ class YouTubeDownloader:
 
     def paste_from_clipboard(self):
         try:
-            import tkinter as tk
-
             clipboard = self.root.clipboard_get()
             self.url_var.set(clipboard)
             self.url_entry.icursor(tk.END)
@@ -899,32 +897,9 @@ class YouTubeDownloader:
                 messagebox.showerror("Ошибка", f"Не удалось создать папку: {e}")
                 return
 
-        # Получаем информацию о файле перед закачкой
-        filename, info = self.get_file_info_before_download(url)
-        if filename and os.path.exists(filename):
-            # Файл уже существует - заменяем кнопку на "Проиграть"
-            self.last_downloaded_file = filename
-            self.last_info = info
-            self.quick_download_button.config(
-                text="Проиграть скачанный файл",
-                command=self.play_downloaded_file,
-                state="normal",
-            )
-            # Показываем кнопку "Удалить"
-            if self.quick_delete_button is None:
-                self.quick_delete_button = ttk.Button(
-                    self.quick_buttons_frame,
-                    text="Удалить",
-                    command=self.delete_downloaded_file,
-                )
-                self.quick_delete_button.pack(side=tk.LEFT, padx=5)
-            # Обновляем информацию о файле
-            self.update_quick_buttons()
-            return
-
+        # --- Блокируем кнопки и очищаем лог до скачивания ---
         self.quick_progress["value"] = 0
         self.quick_log.delete(1.0, tk.END)
-        # Очищаем параметры файла при начале новой закачки
         if hasattr(self, "quick_file_params_label"):
             self.quick_file_params_label.config(text="")
         self._cancel_download = False
@@ -935,7 +910,7 @@ class YouTubeDownloader:
         self.disable_url_buttons()  # Делаем кнопки URL неактивными
         self.root.update_idletasks()
 
-        # Блокируем повторный запуск, если поток уже идёт
+        # --- Запускаем скачивание сразу в отдельном потоке ---
         if (
             hasattr(self, "_quick_download_thread")
             and self._quick_download_thread
@@ -947,19 +922,6 @@ class YouTubeDownloader:
             target=self._quick_download_video
         )
         self._quick_download_thread.start()
-
-    def finalize_downloaded_file(self, info, log_func):
-        filename = self.get_real_downloaded_file(info)
-        if filename and os.path.exists(filename):
-            if self.set_file_current_time(filename):
-                log_func(
-                    f"Дата файла установлена: {datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
-                    important=True,
-                )
-            else:
-                log_func("Не удалось изменить дату файла!", important=True)
-        else:
-            log_func("Файл не найден для изменения даты!", important=True)
 
     def _quick_download_video(self):
         url = self.url_var.get().strip()
@@ -1047,7 +1009,6 @@ class YouTubeDownloader:
         elif status == "finished":
             self.quick_progress["value"] = 100
             self.quick_progress_label.config(text="Скачивание завершено!")
-            self.quick_progress_hook(d)
 
         elif status == "merging":
             self.quick_progress_label.config(text="Слияние аудио и видео...")
@@ -1105,6 +1066,19 @@ class YouTubeDownloader:
 
         return sanitize_filename(filename, restricted=False)
 
+    def finalize_downloaded_file(self, info, log_func):
+        filename = self.get_real_downloaded_file(info)
+        if filename and os.path.exists(filename):
+            if self.set_file_current_time(filename):
+                log_func(
+                    f"Дата файла установлена: {datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S')}",
+                    important=True,
+                )
+            else:
+                log_func("Не удалось изменить дату файла!", important=True)
+        else:
+            log_func("Файл не найден для изменения даты!", important=True)
+
     def get_file_info_before_download(self, url):
         """Получает информацию о файле перед закачкой"""
         try:
@@ -1158,8 +1132,130 @@ class YouTubeDownloader:
         ext = info.get("ext", "mp4")
         return os.path.join(self.download_path.get(), f"{title}.{ext}")
 
+    def quick_log_message(self, message, important=True):
+        self.quick_log.insert(tk.END, f"{message}\n")
+        self.quick_log.see(tk.END)
+
+
+def check_ffmpeg_exists():
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def try_install_ffmpeg():
+    import platform
+    import subprocess
+    import sys
+
+    system = platform.system().lower()
+    try:
+        if system == "windows":
+            # Проверяем наличие winget
+            if shutil.which("winget"):
+                result = subprocess.run(
+                    [
+                        "winget",
+                        "install",
+                        "--id=Gyan.FFmpeg",
+                        "--source=winget",
+                        "--accept-package-agreements",
+                        "--accept-source-agreements",
+                    ],
+                    check=True,
+                )
+                return result.returncode == 0
+            else:
+                return False
+        elif system == "linux":
+            # Проверяем наличие apt
+            if shutil.which("apt"):
+                result = subprocess.run(["sudo", "apt", "update"], check=True)
+                result = subprocess.run(
+                    ["sudo", "apt", "install", "-y", "ffmpeg"], check=True
+                )
+                return result.returncode == 0
+            else:
+                return False
+        elif system == "darwin":
+            # Проверяем наличие brew
+            if shutil.which("brew"):
+                result = subprocess.run(["brew", "install", "ffmpeg"], check=True)
+                return result.returncode == 0
+            else:
+                return False
+        else:
+            return False
+    except Exception as e:
+        return False
+
+
+def show_ffmpeg_manual():
+    import platform
+
+    system = platform.system().lower()
+    if system == "windows":
+        msg = (
+            "На вашем компьютере не найден ffmpeg!\n\n"
+            "Пожалуйста, скачайте и установите ffmpeg с официального сайта:\n"
+            "https://ffmpeg.org/download.html\n\n"
+            "Рекомендуется использовать winget: winget install --id=Gyan.FFmpeg --source=winget\n"
+            "После установки убедитесь, что ffmpeg добавлен в PATH или находится по пути c:/Program Files (x86)/ffmpeg/bin/ffmpeg.exe."
+        )
+    elif system == "linux":
+        msg = (
+            "На вашем компьютере не найден ffmpeg!\n\n"
+            "Для Ubuntu/Debian выполните в терминале:\n"
+            "sudo apt update && sudo apt install ffmpeg -y\n\n"
+            "Для других дистрибутивов смотрите инструкции на https://ffmpeg.org/download.html"
+        )
+    elif system == "darwin":
+        msg = (
+            "На вашем компьютере не найден ffmpeg!\n\n"
+            "Для установки через Homebrew выполните в терминале:\n"
+            "brew install ffmpeg\n\n"
+            'Если Homebrew не установлен: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"\n'
+            "Подробнее: https://ffmpeg.org/download.html"
+        )
+    else:
+        msg = (
+            "На вашей системе не найден ffmpeg!\n\n"
+            "Пожалуйста, скачайте и установите ffmpeg с https://ffmpeg.org/download.html"
+        )
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showerror("FFmpeg не найден", msg)
+
 
 def main():
+    # Проверка наличия ffmpeg
+    if not check_ffmpeg_exists():
+        root = tk.Tk()
+        root.withdraw()
+        answer = messagebox.askyesno(
+            "FFmpeg не найден",
+            "На вашем компьютере не найден ffmpeg!\n\n"
+            "Хотите попробовать установить ffmpeg автоматически?",
+        )
+        if answer:
+            ok = try_install_ffmpeg()
+            if ok and check_ffmpeg_exists():
+                messagebox.showinfo(
+                    "FFmpeg установлен",
+                    "FFmpeg успешно установлен! Программа продолжит работу.",
+                )
+            else:
+                show_ffmpeg_manual()
+                sys.exit(1)
+        else:
+            show_ffmpeg_manual()
+            sys.exit(1)
     root = tk.Tk()
     app = YouTubeDownloader(root)
     root.mainloop()
