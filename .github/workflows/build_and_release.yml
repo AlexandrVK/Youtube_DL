@@ -1,17 +1,14 @@
-name: Build EXE
+name: Build and Release EXE as ZIP
 
 on:
   push:
     tags:
       - "v*"
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -28,43 +25,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
-        shell: cmd
-
-      - name: Check environment
-        run: |
-          python --version
-          pip list | findstr -i "yt-dlp pyinstaller"
-          python -c "import yt_dlp; print('yt-dlp version:', yt_dlp.version.__version__)"
-        shell: cmd
 
       - name: Build EXE
         run: |
           pyinstaller --onefile --windowed --name "YouTube_Downloader_Enhanced" --icon=icon.ico --clean start.py
-        shell: cmd
 
-      - name: Verify build
+      - name: Create ZIP archive
         run: |
-          if exist dist\YouTube_Downloader_Enhanced.exe (
-            echo "Build successful!"
-            dir dist
-          ) else (
-            echo "Build failed - EXE not found"
-            exit 1
-          )
-        shell: cmd
+          powershell Compress-Archive -Path dist\\YouTube_Downloader_Enhanced.exe -DestinationPath dist\\youtube-downloader-enhanced.zip
 
-      - name: Upload artifacts
+      - name: Upload ZIP as artifact
         uses: actions/upload-artifact@v4
         with:
           name: youtube-downloader-enhanced
-          path: dist/
+          path: dist/youtube-downloader-enhanced.zip
           retention-days: 30
 
-      - name: Create Release
+      - name: Create Release and Upload ZIP
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/YouTube_Downloader_Enhanced.exe
+          files: dist/youtube-downloader-enhanced.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

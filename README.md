@@ -100,6 +100,12 @@ Youtube_DL/
 - ✅ LICENSE файл с лицензией MIT добавлен
 - ⚠️ Не выкладывайте свои персональные ключи, cookies и т.п. в открытый доступ
 
+## Скачать последнюю версию
+
+[Скачать последнюю версию программы (zip-архив)](https://github.com/AlexandrVK/Youtube_DL/releases/latest/download/youtube-downloader-enhanced.zip)
+
+Эта ссылка всегда ведёт на самый свежий релиз (последний опубликованный zip-архив с exe-файлом).
+
 ---
 
 **Автор:** @AlexandrVK

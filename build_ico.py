@@ -1,3 +1,4 @@
+# pip install pillow
 from PIL import Image
 
 input_png = "icon.png"  # Ваш PNG 1024x1024
