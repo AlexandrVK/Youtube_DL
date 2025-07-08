@@ -1139,11 +1139,16 @@ class YouTubeDownloader:
 
 def check_ffmpeg_exists():
     import subprocess
+    import sys
 
     try:
-        result = subprocess.run(
-            ["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
+        kwargs = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+        }
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        result = subprocess.run(["ffmpeg", "-version"], **kwargs)
         return result.returncode == 0
     except Exception:
         return False
