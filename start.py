@@ -1,4 +1,3 @@
-from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import yt_dlp
@@ -7,8 +6,6 @@ import re
 import os
 import sys
 import datetime
-import time
-import json
 import glob
 import shutil
 
@@ -18,7 +15,7 @@ except ImportError:
     winreg = None
 
 
-# --- Добавлено: функция для изменения даты создания файла на Windows через pywin32 ---
+# --- Функция для изменения даты создания файла на Windows через pywin32 ---
 def set_creation_time_win(filepath, timestamp):
     if sys.platform == "win32":
         try:
@@ -47,14 +44,6 @@ def set_creation_time_win(filepath, timestamp):
             print(f"Ошибка при установке даты создания файла: {e}")
             return False
     return False
-
-
-# --- Добавлено: функция для поиска самого нового файла в папке ---
-def get_latest_file(folder):
-    files = glob.glob(os.path.join(folder, "*"))
-    if not files:
-        return None
-    return max(files, key=os.path.getmtime)
 
 
 class YouTubeDownloader:
@@ -1137,9 +1126,9 @@ class YouTubeDownloader:
         self.quick_log.see(tk.END)
 
 
+# --- Проверка наличия ffmpeg ---
 def check_ffmpeg_exists():
     import subprocess
-    import sys
 
     try:
         kwargs = {
@@ -1154,15 +1143,14 @@ def check_ffmpeg_exists():
         return False
 
 
+# --- Автоустановка ffmpeg ---
 def try_install_ffmpeg():
     import platform
     import subprocess
-    import sys
 
     system = platform.system().lower()
     try:
         if system == "windows":
-            # Проверяем наличие winget
             if shutil.which("winget"):
                 result = subprocess.run(
                     [
@@ -1179,9 +1167,8 @@ def try_install_ffmpeg():
             else:
                 return False
         elif system == "linux":
-            # Проверяем наличие apt
             if shutil.which("apt"):
-                result = subprocess.run(["sudo", "apt", "update"], check=True)
+                subprocess.run(["sudo", "apt", "update"], check=True)
                 result = subprocess.run(
                     ["sudo", "apt", "install", "-y", "ffmpeg"], check=True
                 )
@@ -1189,7 +1176,6 @@ def try_install_ffmpeg():
             else:
                 return False
         elif system == "darwin":
-            # Проверяем наличие brew
             if shutil.which("brew"):
                 result = subprocess.run(["brew", "install", "ffmpeg"], check=True)
                 return result.returncode == 0
@@ -1197,10 +1183,11 @@ def try_install_ffmpeg():
                 return False
         else:
             return False
-    except Exception as e:
+    except Exception:
         return False
 
 
+# --- Инструкция по ручной установке ffmpeg ---
 def show_ffmpeg_manual():
     import platform
 
@@ -1238,8 +1225,8 @@ def show_ffmpeg_manual():
     messagebox.showerror("FFmpeg не найден", msg)
 
 
+# --- Точка входа ---
 def main():
-    # Проверка наличия ffmpeg
     if not check_ffmpeg_exists():
         root = tk.Tk()
         root.withdraw()
